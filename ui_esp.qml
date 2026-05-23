@@ -72,6 +72,10 @@ Item {
                     Label { text: "Start Button (active-low)" }
                     SpinBox { id: pinStart;     Layout.fillWidth: true; from: 0; to: 17; value: 10 }
 
+                    // Ignition (active-high 12 V)
+                    Label { text: "Ignition Input (active-high)" }
+                    SpinBox { id: pinIgnition;  Layout.fillWidth: true; from: 0; to: 17; value: 13 }
+
                     Button {
                         Layout.columnSpan: 2
                         Layout.fillWidth: true
@@ -83,7 +87,8 @@ Item {
                                 pinBrake.value     + " " +
                                 pinSidestand.value + " " +
                                 pinCruise.value    + " " +
-                                pinStart.value     + ")"
+                                pinStart.value     + " " +
+                                pinIgnition.value  + ")"
                             sendCode(cmd)
                         }
                     }
@@ -116,6 +121,7 @@ Item {
                 pinSidestand.value  = parseInt(t[4])
                 pinCruise.value     = parseInt(t[5])
                 pinStart.value      = parseInt(t[6])
+                pinIgnition.value   = parseInt(t[7])
             } else if (str === "ok") {
                 VescIf.emitStatusMessage("Settings saved.", true)
             }

@@ -51,6 +51,14 @@ Item {
                     Label { text: "Active (scooter on)" }
                     Item { Layout.fillWidth: true }
 
+                    Rectangle {
+                        id: indIgnition
+                        width: 18; height: 18; radius: 9
+                        color: boolColor(false)
+                    }
+                    Label { text: "Ignition On" }
+                    Item { Layout.fillWidth: true }
+
                     // Start button
                     Rectangle {
                         id: indStart
@@ -194,13 +202,14 @@ Item {
             } else if (str.startsWith("status ")) {
                 var s = str.split(" ")
                 indActive.color  = boolColor(parseInt(s[1]) === 1)
-                indStart.color   = boolColor(parseInt(s[2]) === 1)
-                indModeLeft.color = boolColor(parseInt(s[3]) === 1)
-                indModeRight.color = boolColor(parseInt(s[4]) === 1)
-                indBrake.color   = boolColor(parseInt(s[5]) === 1)
-                indSide.color    = boolColor(parseInt(s[6]) === 1)
-                indCruise.color  = boolColor(parseInt(s[7]) === 1)
-                indCruiseActive.color = boolColor(parseInt(s[8]) === 1)
+                indIgnition.color = boolColor(parseInt(s[2]) === 1)
+                indStart.color   = boolColor(parseInt(s[3]) === 1)
+                indModeLeft.color = boolColor(parseInt(s[4]) === 1)
+                indModeRight.color = boolColor(parseInt(s[5]) === 1)
+                indBrake.color   = boolColor(parseInt(s[6]) === 1)
+                indSide.color    = boolColor(parseInt(s[7]) === 1)
+                indCruise.color  = boolColor(parseInt(s[8]) === 1)
+                indCruiseActive.color = boolColor(parseInt(s[9]) === 1)
             } else if (str === "ok") {
                 VescIf.emitStatusMessage("Settings saved.", true)
             }

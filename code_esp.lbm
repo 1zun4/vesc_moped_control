@@ -3,6 +3,7 @@
 (def mode-button-right false)
 (def sidestand-down false)
 (def cruise-button false)
+(def ignition-on false)
 (def brake-active 0)
 
 (import "pkg@://vesc_packages/lib_tca9535/tca9535.vescpkg" 'tca9535)
@@ -11,7 +12,7 @@
 @const-start
 
 (def control-sid 200)
-(def settings-version 1i32)
+(def settings-version 2i32)
 
 ; Persistent settings: (label . (eeprom-offset type))
 (def eeprom-addrs '(
@@ -22,6 +23,7 @@
     (pin-sidestand    . (4  i))
     (pin-cruise       . (5  i))
     (pin-start        . (6  i))
+    (pin-ignition     . (7  i))
 ))
 
 (defun read-setting (name)
@@ -45,6 +47,7 @@
     (write-setting 'pin-sidestand  7)
     (write-setting 'pin-cruise     12)
     (write-setting 'pin-start      10)
+    (write-setting 'pin-ignition   13)
     (write-setting 'ver-code settings-version)
 })
 
@@ -58,6 +61,7 @@
     (setq io-pin-sidestand  (read-setting 'pin-sidestand))
     (setq io-pin-cruise     (read-setting 'pin-cruise))
     (setq io-pin-start      (read-setting 'pin-start))
+    (setq io-pin-ignition   (read-setting 'pin-ignition))
 })
 
 (defun send-settings () {
@@ -68,17 +72,19 @@
         (str-from-n (read-setting 'pin-brake)      "%d ")
         (str-from-n (read-setting 'pin-sidestand)  "%d ")
         (str-from-n (read-setting 'pin-cruise)     "%d ")
-        (str-from-n (read-setting 'pin-start)      "%d")
+        (str-from-n (read-setting 'pin-start)      "%d ")
+        (str-from-n (read-setting 'pin-ignition)   "%d")
     ))
 })
 
-(defun save-settings (pml pmr pbr pss pcr pst) {
+(defun save-settings (pml pmr pbr pss pcr pst pig) {
     (write-setting 'pin-mode-left  pml)
     (write-setting 'pin-mode-right pmr)
     (write-setting 'pin-brake      pbr)
     (write-setting 'pin-sidestand  pss)
     (write-setting 'pin-cruise     pcr)
     (write-setting 'pin-start      pst)
+    (write-setting 'pin-ignition   pig)
     (load-settings)
     (send-data "ok")
 })
@@ -92,12 +98,13 @@
 (def io-pin-sidestand  7)
 (def io-pin-start      10)
 (def io-pin-cruise     12)
+(def io-pin-ignition   13)
 
 (defun read-pins () {
     ; Pull-down bank (active-high inputs)
         (tca9535-write-pins '(17 0))
     (sleep 0.001)
-    (var pd (list (tca9535-read-pins io-pin-brake)))
+    (var pd (tca9535-read-pins io-pin-brake io-pin-ignition))
 
     ; Pull-up bank (active-low inputs)
         (tca9535-write-pins '(17 1))
@@ -111,7 +118,7 @@
     ))
 
     ; Return values in CAN field order:
-    ; mode-left, mode-right, brake, sidestand, cruise, start
+    ; mode-left, mode-right, brake, sidestand, cruise, start, ignition
     (list
         (ix pu 0)
         (ix pu 1)
@@ -119,6 +126,7 @@
         (ix pu 2)
         (ix pu 3)
         (ix pu 4)
+        (ix pd 1)
     )
 })
 
@@ -184,6 +192,7 @@
                 (setq sidestand-down    (= (ix pins 3) 0))
                 (setq cruise-button     (= (ix pins 4) 0))
                 (setq start-button      (= (ix pins 5) 0))
+                (setq ignition-on       (= (ix pins 6) 1))
 
                 (bufclear canbuf)
                 (bufset-u8 canbuf 0 (if start-button 1 0))
@@ -192,6 +201,7 @@
                 (bufset-u8 canbuf 3 (if sidestand-down 1 0))
                 (bufset-u8 canbuf 4 (if cruise-button 1 0))
                 (bufset-u8 canbuf 5 (if (>= brake-active 2) 1 0))
+                (bufset-u8 canbuf 6 (if ignition-on 1 0))
                 (can-send-sid control-sid canbuf)
 
                 (sleep 0.05)

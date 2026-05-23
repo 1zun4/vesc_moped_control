@@ -4,6 +4,7 @@
 (def sidestand-down false)
 (def cruise-button false)
 (def brake-switch false)
+(def ignition-on false)
 
 (def adc-throttle 0.0)
 (def last-start-button false)
@@ -87,6 +88,7 @@
     (send-data (str-merge
         "status "
         (if active "1 " "0 ")
+        (if (and online ignition-on) "1 " "0 ")
         (if (and online start-button) "1 " "0 ")
         (if (and online mode-button-left) "1 " "0 ")
         (if (and online mode-button-right) "1 " "0 ")
@@ -130,6 +132,7 @@
                 (setq sidestand-down (= (bufget-u8 data 3) 1))
                 (setq cruise-button (= (bufget-u8 data 4) 1))
                 (setq brake-switch (= (bufget-u8 data 5) 1))
+                (setq ignition-on (= (bufget-u8 data 6) 1))
                 (setq last-control-update (systime))
             }
         )
@@ -160,21 +163,22 @@
         (loopwhile-thd ("Control" 150) t {
                 (setq adc-throttle (get-adc 0))
                 (var controls-online (< (secs-since last-control-update) control-timeout))
+                (var controls-allowed (and controls-online ignition-on))
             (var speed-kmh (* (abs (get-speed)) 3.6))
 
                 ; Toggle active state on rising edge of start-button
-                (if (and controls-online start-button (not last-start-button)) {
+                (if (and controls-allowed start-button (not last-start-button)) {
                     (setq active (not active))
                     (if (not active) (setq cruise-active false))
                 })
 
                 ; Only allow switching into reverse when nearly stationary.
-                (if (and controls-online mode-button-left (not last-mode-button-left) (< speed-kmh 5.0)) {
+                (if (and controls-allowed mode-button-left (not last-mode-button-left) (< speed-kmh 5.0)) {
                     (setq reverse-mode true)
                     (if profile-applied (apply-start-profile true))
                 })
 
-                (if (and controls-online mode-button-right (not last-mode-button-right)) {
+                (if (and controls-allowed mode-button-right (not last-mode-button-right)) {
                     (setq reverse-mode false)
                     (if profile-applied (apply-start-profile true))
                 })
@@ -185,14 +189,14 @@
                     (setq cruise-active false)
                 })
 
-                ; Deactivate if CAN controls go offline.
-                (if (and (not controls-online) active) {
+                ; Deactivate when controls are unavailable or ignition is off.
+                (if (and (not controls-allowed) active) {
                     (setq active false)
                     (setq cruise-active false)
                 })
 
                 ; Toggle cruise latch on button press.
-                (if (and controls-online cruise-button (not last-cruise-button)) {
+                (if (and controls-allowed cruise-button (not last-cruise-button)) {
                     (if cruise-active
                         (setq cruise-active false)
                         (if (and active (not sidestand-down) (not brake-switch) (> speed-kmh 5.0))
@@ -203,7 +207,7 @@
 
                 ; Cancel cruise on brake, sidestand, offline, disable, or throttle re-application.
                 (if (or
-                        (not controls-online)
+                    (not controls-allowed)
                         (not active)
                         sidestand-down
                         brake-switch
@@ -218,13 +222,14 @@
                 (app-adc-override 2 0.0)
                 (app-adc-override 3 (if cruise-active 3.3 0.0))
 
+                ; Track raw button state so a held button cannot trigger on ignition rise.
                 (setq last-start-button (and controls-online start-button))
                 (setq last-cruise-button (and controls-online cruise-button))
                 (setq last-mode-button-left (and controls-online mode-button-left))
                 (setq last-mode-button-right (and controls-online mode-button-right))
                 (setq last-adc-throttle adc-throttle)
 
-                (var should-apply-profile (and active controls-online (not sidestand-down)))
+                (var should-apply-profile (and active controls-allowed (not sidestand-down)))
                 (if (not-eq profile-applied should-apply-profile)
                     (apply-start-profile should-apply-profile)
                 )
